@@ -19,29 +19,22 @@ from itertools import groupby
 #
 def copy_raw_files_to_input_folder(n):
     """Funcion copy_files"""
-    # Crear directorio input si no existe
-    if not os.path.exists("files/input"):
-        os.makedirs("files/input")
 
-    # Obtener lista de archivos en raw
-    raw_files = glob.glob("files/raw/*.txt")
+    if os.path.exists("files/input"):
+        for file in glob.glob("files/input/*"):
+            os.remove(file)
+        os.rmdir("files/input")
+    os.makedirs("files/input")
 
-    # Para cada archivo en raw
-    for raw_file in raw_files:
-        # Obtener el nombre base del archivo
-        base_name = os.path.basename(raw_file)
-        name_without_ext = os.path.splitext(base_name)[0]
-
-        # Crear n copias
+    for file in glob.glob("files/raw/*"):
         for i in range(1, n + 1):
-            # Crear el nombre del archivo de salida
-            output_name = f"{name_without_ext}_{i}.txt"
-            output_path = os.path.join("files/input", output_name)
-
-            # Copiar el archivo
-            with open(raw_file, "r", encoding="utf-8") as src:
-                with open(output_path, "w", encoding="utf-8") as dst:
-                    dst.write(src.read())
+            with open(file, "r", encoding="utf-8") as f:
+                with open(
+                    f"files/input/{os.path.basename(file).split('.')[0]}_{i}.txt",
+                    "w",
+                    encoding="utf-8",
+                ) as f2:
+                    f2.write(f.read())
 
 
 #
@@ -61,22 +54,13 @@ def copy_raw_files_to_input_folder(n):
 #
 def load_input(input_directory):
     """Funcion load_input"""
-    lines = []
-    # Obtener todos los archivos .txt en el directorio
-    input_files = glob.glob(os.path.join(input_directory, "*.txt"))
 
-    # Para cada archivo
-    for input_file in input_files:
-        # Obtener el nombre del archivo
-        file_name = os.path.basename(input_file)
-
-        # Leer cada línea del archivo
-        with open(input_file, "r", encoding="utf-8") as file:
-            for line in file:
-                # Agregar tupla (nombre_archivo, línea)
-                lines.append((file_name, line.strip()))
-
-    return lines
+    sequence = []
+    files = glob.glob(f"{input_directory}/*")
+    with fileinput.input(files=files) as f:
+        for line in f:
+            sequence.append((fileinput.filename(), line))
+    return sequence
 
 
 #
@@ -88,15 +72,11 @@ def line_preprocessing(sequence):
     """Line Preprocessing"""
     processed = []
     for file_name, line in sequence:
-        # Convertir a minúsculas
         line = line.lower()
-        # Eliminar caracteres especiales y números
         line = "".join(c for c in line if c.isalpha() or c.isspace())
-        # Dividir en palabras
         words = line.split()
-        # Agregar cada palabra con el nombre del archivo
         for word in words:
-            if word:  # Ignorar palabras vacías
+            if word:
                 processed.append((word, 1))
     return processed
 
@@ -134,7 +114,6 @@ def mapper(sequence):
 #
 def shuffle_and_sort(sequence):
     """Shuffle and Sort"""
-    # Ordenar por la clave (palabra)
     return sorted(sequence, key=lambda x: x[0])
 
 
@@ -147,9 +126,7 @@ def shuffle_and_sort(sequence):
 def reducer(sequence):
     """Reducer"""
     reduced = []
-    # Agrupar por palabra
     for key, group in groupby(sequence, key=lambda x: x[0]):
-        # Sumar los valores
         total = sum(value for _, value in group)
         reduced.append((key, total))
     return reduced
@@ -161,13 +138,11 @@ def reducer(sequence):
 #
 def create_ouptput_directory(output_directory):
     """Create Output Directory"""
-    # Si el directorio existe, borrarlo
-    if os.path.exists(output_directory):
-        for file in os.listdir(output_directory):
-            os.remove(os.path.join(output_directory, file))
-        os.rmdir(output_directory)
 
-    # Crear el directorio
+    if os.path.exists(output_directory):
+        for file in glob.glob(f"{output_directory}/*"):
+            os.remove(file)
+        os.rmdir(output_directory)
     os.makedirs(output_directory)
 
 
@@ -203,28 +178,13 @@ def create_marker(output_directory):
 #
 def run_job(input_directory, output_directory):
     """Job"""
-    # Cargar los datos
     lines = load_input(input_directory)
-
-    # Preprocesar las líneas
     processed = line_preprocessing(lines)
-
-    # Mapear
     mapped = mapper(processed)
-
-    # Shuffle and sort
     sorted_data = shuffle_and_sort(mapped)
-
-    # Reducir
     reduced = reducer(sorted_data)
-
-    # Crear directorio de salida
     create_ouptput_directory(output_directory)
-
-    # Guardar resultados
     save_output(output_directory, reduced)
-
-    # Crear marcador
     create_marker(output_directory)
 
 
